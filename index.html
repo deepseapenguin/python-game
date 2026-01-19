@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.13.2/brython.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.13.2/brython_stdlib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.29.1/full/pyodide.js"></script>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>python-game</title>
+  <script type="text/python">
+    import sys
+    from browser import window
+
+    def run_from_js(code_str):
+        loc = {}
+        try:
+            exec(code_str, globals(), loc)
+            return loc
+        except Exception as e:
+            return str(e)
+
+    # 将这个 Python 函数挂载到 JS 的 window 对象
+    window.executePython = run_from_js
+  </script>
+  <style>
+    body,
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      /* 使用 CSS 設置背景漸變，減少 Canvas 每幀渲染負擔 */
+      background: linear-gradient(135deg, #e9f2ff, #dde4f8);
+      background-attachment: fixed;
+    }
+
+    canvas {
+      display: block;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+
+    #root {
+      display: block;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="bubbleCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('bubbleCanvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const bubbles = [];
+
+    class Bubble {
+      constructor() {
+        this.reset();
+      }
+
+      hexToRgb(hex) {
+        // Remove the '#' character if it exists
+        hex = hex.replace(/^#/, '');
+
+        // Expand shorthand form (e.g., "03F" to "0033FF")
+        if (hex.length === 3) {
+          hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        }
+
+        // Validate the hex format (must be 6 digits/chars)
+        const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+
+        if (!result) {
+          return null; // Invalid color format
+        }
+
+        // Parse the R, G, B values from the matched groups using base 16
+        const r = parseInt(result[1], 16); // result[1] is the red component
+        const g = parseInt(result[2], 16); // result[2] is the green component
+        const b = parseInt(result[3], 16); // result[3] is the blue component
+
+        return [r, g, b];
+      }
+
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.radius = Math.random() * 50 + 100; // 泡泡大小
+        this.y = canvas.height + this.radius; // 從底部以下生成
+
+        this.speed = Math.random() * 1 + 0.5; // 上升速度
+        this.opacity = 1; // 透明度
+        this.sway = Math.random() * 2; // 左右搖擺幅度
+        this.swaySpeed = Math.random() * 0.02; // 搖擺頻率
+        this.angle = Math.random() * Math.PI * 2;
+        // 模糊程度
+        this.blur = 100;
+        this.color = this.hexToRgb([
+          "#a670e8",
+          "#c5dd83",
+          "#89bafb",
+        ][Math.floor(Math.random() * 3)])
+      }
+
+      update() {
+        this.y -= this.speed;
+        this.angle += this.swaySpeed;
+        this.x += Math.sin(this.angle) * 0.5;
+
+        // 如果泡泡飄出頂部，重置到下面
+        if (this.y < -this.radius * 2) {
+          this.reset();
+        }
+      }
+
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        ctx.beginPath();
+
+        const gradient = ctx.createRadialGradient(
+          this.x, this.y, 0,
+          this.x, this.y, this.radius
+        );
+        gradient.addColorStop(0, `rgba(${this.color[0]}, ${this.color[1]}, ${this.color[2]}, 0.1)`);
+        gradient.addColorStop(1, `rgba(${this.color[0]}, ${this.color[1]}, ${this.color[2]}, 0.01)`);
+
+        ctx.shadowBlur = this.blur;
+        ctx.shadowColor = "rgba(255, 255, 255, 0.5)";
+
+        ctx.fillStyle = gradient;
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+
+
+        ctx.restore();
+      }
+    }
+
+    function init() {
+      for (let i = 0; i < 10; i++) {
+        bubbles.push(new Bubble());
+      }
+    }
+
+    function animate() {
+      // 使用半透明黑色覆蓋來製造輕微的殘影效果（可選）
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      bubbles.forEach(bubble => {
+        bubble.update();
+        bubble.draw();
+      });
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    init();
+    animate();
+  </script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
